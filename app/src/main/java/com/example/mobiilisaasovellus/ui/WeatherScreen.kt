@@ -87,6 +87,7 @@ import java.time.format.TextStyle
 import java.util.Calendar
 import java.util.Locale
 
+// data class 7 päivän sääennusteelle
 data class DailyForecast(
     val dayName: String,
     val condition: String,
@@ -96,13 +97,16 @@ data class DailyForecast(
     val precipitation: Float
 )
 
+// data class nykyiselle säälle
 data class WeatherDetail(
     val label: String,
     val value: String,
     val icon: ImageVector,
+    // tuulikuvakkeen rotation muuttuu tuulensuunnan mukaan
     val rotation: Float = 0f
 )
 
+// tekstit ja kuvakkeet nykyiselle säälle
 data class CurrentWeatherState(
     val locationName: String = "Haetaan sijaintia...",
     val temperature: String = "--°C",
@@ -114,6 +118,7 @@ data class CurrentWeatherState(
     val forecastList: List<DailyForecast> = emptyList()
 )
 
+// data class nykyiselle säälle sää apista
 data class OpenMeteoCurrent(
     val temperature_2m: Double?,
     val relative_humidity_2m: Double?,
@@ -122,6 +127,7 @@ data class OpenMeteoCurrent(
     val wind_direction_10m: Double?
 )
 
+// data class 7 päivän sääennusteelle apista
 data class OpenMeteoDaily(
     val time: List<String>?,
     val weather_code: List<Int>?,
@@ -137,6 +143,7 @@ data class OpenMeteoResponse(
     val daily: OpenMeteoDaily?
 )
 
+// hae säätiedot
 interface ApiService {
     @GET("v1/forecast")
     suspend fun getWeather(
@@ -157,6 +164,7 @@ object RetrofitClient {
     val api: ApiService = retrofit.create(ApiService::class.java)
 }
 
+// viikonpäivän nimet
 fun formatDayLabel(index: Int, dateString: String?): String {
     val locale = Locale.forLanguageTag("fi-FI")
     val todayCal = Calendar.getInstance()
@@ -200,6 +208,7 @@ fun formatDayLabel(index: Int, dateString: String?): String {
     }
 }
 
+// yhdistä sääkoodit tekstiin ja kuvakkeisiin
 fun mapWeatherCode(code: Int?): Pair<String, ImageVector> {
     return when (code) {
         0 -> Pair("Selkeää", Icons.Default.WbSunny)
@@ -215,6 +224,7 @@ fun mapWeatherCode(code: Int?): Pair<String, ImageVector> {
     }
 }
 
+// päänäkymä
 @Composable
 fun WeatherScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -228,6 +238,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
     var userLocation by remember { mutableStateOf<Location?>(null) }
     var weatherState by remember { mutableStateOf(CurrentWeatherState()) }
 
+    // hae säätiedot
     fun fetchWeatherForCoordinates(lat: Double, lng: Double, locationName: String) {
         coroutineScope.launch(Dispatchers.IO) {
             try {
@@ -237,6 +248,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
 
                 val dailyList = mutableListOf<DailyForecast>()
 
+                // lisää 7 päivän sääennusteeseen päivän tiedot
                 response.daily?.let { daily ->
                     val times = daily.time ?: emptyList()
                     for (i in times.indices) {
@@ -260,6 +272,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                     }
                 }
 
+                // nykyinen sää
                 withContext(Dispatchers.Main) {
                     weatherState = CurrentWeatherState(
                         locationName = locationName,
@@ -283,6 +296,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
         }
     }
 
+    // hae sijainnin paikan nimi
     fun getCityNameAndFetchWeather(lat: Double, lng: Double) {
         coroutineScope.launch(Dispatchers.IO) {
             var cityName = "Nykyinen sijainti"
@@ -310,13 +324,15 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                     }
                 }
             } catch (e: Exception) {
-                // Fallback to default name
+                // fallback oletusnimeen
             }
             fetchWeatherForCoordinates(lat, lng, cityName)
         }
     }
 
+    // hae käyttäjän viimeisin tunnettu sijainti
     fun fetchLastKnownLocation() {
+        // onko lupa sijaintiin
         val hasFine = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
@@ -333,7 +349,6 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                         userLocation = location
                         getCityNameAndFetchWeather(location.latitude, location.longitude)
                     } else {
-                        // Fallback to getCurrentLocation if lastLocation is null
                         val priority = if (hasFine) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY
                         fusedLocationClient.getCurrentLocation(priority, CancellationTokenSource().token)
                             .addOnSuccessListener { currentLocation: Location? ->
@@ -441,6 +456,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
     }
 }
 
+// yläpalkki
 @Composable
 fun WeatherTopBar(
     searchQuery: String,
@@ -493,6 +509,7 @@ fun WeatherTopBar(
     }
 }
 
+// nykyisen sään kortti
 @Composable
 fun CurrentWeatherCard(
     location: String,
@@ -582,6 +599,7 @@ fun CurrentWeatherCard(
                             contentDescription = detail.label,
                             modifier = Modifier
                                 .size(24.dp)
+                                // tuulen suunta
                                 .rotate(detail.rotation)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -601,6 +619,7 @@ fun CurrentWeatherCard(
     }
 }
 
+// 7 päivän ennuste
 @Composable
 fun Forecast7DaySection(
     forecastList: List<DailyForecast>,
@@ -638,6 +657,7 @@ fun Forecast7DaySection(
     }
 }
 
+// 7 päivän ennusteen rivi
 @Composable
 fun ForecastRowItem(
     forecast: DailyForecast,
@@ -715,6 +735,7 @@ fun ForecastRowItem(
     }
 }
 
+// alapalkki
 @Composable
 fun WeatherBottomNavigationBar(
     selectedTab: Int,
@@ -767,6 +788,7 @@ fun WeatherBottomNavigationBar(
     }
 }
 
+// placeholder sääennusteelle
 private fun mockForecastList(): List<DailyForecast> {
     return listOf(
         DailyForecast("---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
