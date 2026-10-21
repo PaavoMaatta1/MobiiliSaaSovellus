@@ -86,6 +86,9 @@ import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Calendar
 import java.util.Locale
+import kotlin.math.roundToInt
+import kotlin.math.roundToLong
+import kotlin.math.round
 
 // data class 7 päivän sääennusteelle
 data class DailyForecast(
@@ -272,6 +275,10 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                     }
                 }
 
+                val windSpeedTemp = current?.wind_speed_10m ?: 0.0
+                val windSpeedMetersPerSecond = windSpeedTemp / 3.6
+                val roundedWindSpeed = round(windSpeedMetersPerSecond * 10) / 10
+
                 // nykyinen sää
                 withContext(Dispatchers.Main) {
                     weatherState = CurrentWeatherState(
@@ -279,7 +286,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                         temperature = "${current?.temperature_2m?.toInt() ?: 0}°C",
                         condition = conditionText,
                         humidity = "${current?.relative_humidity_2m?.toInt() ?: 0}%",
-                        windSpeed = "${current?.wind_speed_10m ?: 0.0} m/s",
+                        windSpeed = "$roundedWindSpeed m/s",
                         windDirection = current?.wind_direction_10m?.toFloat() ?: 0f,
                         icon = icon,
                         forecastList = if (dailyList.isNotEmpty()) dailyList else mockForecastList()
