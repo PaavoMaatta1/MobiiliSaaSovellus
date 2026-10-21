@@ -93,6 +93,8 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 
 // data class 7 päivän sääennusteelle
 data class DailyForecast(
@@ -282,6 +284,8 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
     var userLocation by remember { mutableStateOf<Location?>(null) }
     var weatherState by remember { mutableStateOf(CurrentWeatherState()) }
 
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     // hae säätiedot
     fun fetchWeatherForCoordinates(lat: Double, lng: Double, locationName: String) {
         coroutineScope.launch(Dispatchers.IO) {
@@ -386,6 +390,8 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
         searchQuery = ""
         searchResults = emptyList()
         fetchWeatherForCoordinates(location.latitude, location.longitude, displayName)
+
+        keyboardController?.hide()
     }
 
     // hae sijainnin paikan nimi
@@ -559,6 +565,8 @@ fun WeatherTopBar(
     searchResults: List<GeocodingLocation>,
     onLocationSelected: (GeocodingLocation) -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -593,6 +601,7 @@ fun WeatherTopBar(
                     keyboardActions = KeyboardActions(
                         onSearch = {
                             searchResults.firstOrNull()?.let { onLocationSelected(it) }
+                            focusManager.clearFocus(true)
                         }
                     ),
                     colors = OutlinedTextFieldDefaults.colors(
