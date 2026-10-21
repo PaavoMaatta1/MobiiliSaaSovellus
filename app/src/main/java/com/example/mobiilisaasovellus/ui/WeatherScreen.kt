@@ -1,7 +1,7 @@
 package com.example.mobiilisaasovellus.ui
 
 import android.Manifest
-import android.content.Context
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.location.Geocoder
 import android.location.Location
@@ -16,9 +16,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -31,16 +31,13 @@ import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Dehaze
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ShortText
 import androidx.compose.material.icons.filled.South
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Thunderstorm
-import androidx.compose.material.icons.filled.Water
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Card
@@ -77,7 +74,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.mobiilisaasovellus.ui.theme.AppTheme
-import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -90,13 +86,13 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
 import java.text.SimpleDateFormat
-import java.time.LocalDate
-import java.time.format.TextStyle
 import java.util.Calendar
 import java.util.Locale
-import kotlin.math.roundToInt
-import kotlin.math.roundToLong
 import kotlin.math.round
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
 
 // data class 7 päivän sääennusteelle
 data class DailyForecast(
@@ -348,7 +344,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                         windSpeed = "$roundedWindSpeed m/s",
                         windDirection = current?.wind_direction_10m?.toFloat() ?: 0f,
                         icon = icon,
-                        forecastList = if (dailyList.isNotEmpty()) dailyList else mockForecastList()
+                        forecastList = dailyList.ifEmpty { mockForecastList() }
                     )
                 }
             } catch (e: Exception) {
@@ -419,7 +415,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                         cityName = city
                     }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // fallback oletusnimeen
             }
             fetchWeatherForCoordinates(lat, lng, cityName)
@@ -561,14 +557,14 @@ fun WeatherTopBar(
     onSearchQueryChange: (String) -> Unit,
     onFavoritesClick: () -> Unit,
     searchResults: List<GeocodingLocation>,
-    onLocationSelected: (GeocodingLocation) -> Unit,
-    modifier: Modifier = Modifier
+    onLocationSelected: (GeocodingLocation) -> Unit
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .safeDrawingPadding(),
-        tonalElevation = 2.dp
+            .windowInsetsPadding(
+                WindowInsets.safeDrawing.only(WindowInsetsSides.Top)
+            )
     ) {
         Column(
             modifier = Modifier
@@ -684,7 +680,7 @@ fun CurrentWeatherCard(
     condition: String,
     icon: ImageVector = Icons.Default.WbSunny,
     details: List<WeatherDetail>,
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
