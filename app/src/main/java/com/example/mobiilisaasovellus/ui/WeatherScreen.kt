@@ -23,12 +23,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ShortText
+import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Dehaze
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShortText
 import androidx.compose.material.icons.filled.South
@@ -217,10 +220,10 @@ fun mapWeatherCode(code: Int?): Pair<String, ImageVector> {
         0 -> Pair("Selkeää", Icons.Default.WbSunny)
         1, 2 -> Pair("Melko selkeää", Icons.Default.WbSunny)
         3 -> Pair("Pilvistä", Icons.Default.Cloud)
-        45, 48 -> Pair("Sumua", Icons.Default.Cloud)
+        45, 48 -> Pair("Sumua", Icons.Default.Dehaze)
         51, 53, 55 -> Pair("Tihkusadetta", Icons.Default.WaterDrop)
         61, 63, 65 -> Pair("Sadetta", Icons.Default.WaterDrop)
-        71, 73, 75, 77 -> Pair("Lumisadetta", Icons.Default.Grain)
+        71, 73, 75, 77 -> Pair("Lumisadetta", Icons.Default.AcUnit)
         80, 81, 82 -> Pair("Sadekuuroja", Icons.Default.WaterDrop)
         95, 96, 99 -> Pair("Ukkosta", Icons.Default.Thunderstorm)
         else -> Pair("Puolipilvistä", Icons.Default.Cloud)
@@ -448,7 +451,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                 condition = weatherState.condition,
                 icon = weatherState.icon,
                 details = listOf(
-                    WeatherDetail("Kosteus", weatherState.humidity, Icons.Default.Water),
+                    WeatherDetail("Kosteus", weatherState.humidity, Icons.Default.Opacity),
                     WeatherDetail("Tuuli", weatherState.windSpeed, Icons.Filled.South, weatherState.windDirection)
                 )
             )
