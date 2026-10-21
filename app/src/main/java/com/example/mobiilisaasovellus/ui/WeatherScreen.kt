@@ -8,6 +8,7 @@ import android.location.Location
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ShortText
@@ -68,6 +71,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,6 +82,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
@@ -149,6 +154,20 @@ data class OpenMeteoResponse(
     val daily: OpenMeteoDaily?
 )
 
+// geocoding API data class
+data class GeocodingLocation(
+    val id: Long,
+    val name: String,
+    val latitude: Double,
+    val longitude: Double,
+    val country: String?,
+    val admin1: String?
+)
+
+data class GeocodingResponse(
+    val results: List<GeocodingLocation>?
+)
+
 // hae säätiedot
 interface ApiService {
     @GET("v1/forecast")
@@ -161,6 +180,17 @@ interface ApiService {
     ): OpenMeteoResponse
 }
 
+// hae sijainti nimen perusteella
+interface GeocodingApiService {
+    @GET("v1/search")
+    suspend fun searchLocations(
+        @Query("name") name: String,
+        @Query("count") count: Int = 10,
+        @Query("language") language: String = "fi",
+        @Query("format") format: String = "json"
+    ): GeocodingResponse
+}
+
 object RetrofitClient {
     private val retrofit = Retrofit.Builder()
         .baseUrl("https://api.open-meteo.com/")
@@ -168,6 +198,15 @@ object RetrofitClient {
         .build()
 
     val api: ApiService = retrofit.create(ApiService::class.java)
+}
+
+object GeocodingRetrofitClient {
+    private val retrofit = Retrofit.Builder()
+        .baseUrl("https://geocoding-api.open-meteo.com/")
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    val api: GeocodingApiService = retrofit.create(GeocodingApiService::class.java)
 }
 
 // viikonpäivän nimet
@@ -239,6 +278,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
 
     var selectedBottomTab by remember { mutableIntStateOf(1) }
     var searchQuery by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<GeocodingLocation>>(emptyList()) }
     var isCurrentLocationFavorited by remember { mutableStateOf(false) }
 
     var userLocation by remember { mutableStateOf<Location?>(null) }
@@ -304,6 +344,36 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                 }
             }
         }
+    }
+
+    // geocoding haku
+    LaunchedEffect(searchQuery) {
+        // 300ms viive välttääkseen turhia api pyyntöjä
+        if (searchQuery.trim().length >= 2) {
+            delay(300L)
+            try {
+                val response = GeocodingRetrofitClient.api.searchLocations(name = searchQuery.trim())
+                searchResults = response.results ?: emptyList()
+            } catch (e: Exception) {
+                searchResults = emptyList()
+            }
+        } else {
+            searchResults = emptyList()
+        }
+    }
+
+    val onLocationSelected: (GeocodingLocation) -> Unit = { location ->
+        val displayName = buildString {
+            append(location.name)
+            if (!location.admin1.isNullOrEmpty()) {
+                append(", ${location.admin1}")
+            } else if (!location.country.isNullOrEmpty()) {
+                append(", ${location.country}")
+            }
+        }
+        searchQuery = ""
+        searchResults = emptyList()
+        fetchWeatherForCoordinates(location.latitude, location.longitude, displayName)
     }
 
     // hae sijainnin paikan nimi
@@ -422,7 +492,9 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
             WeatherTopBar(
                 searchQuery = searchQuery,
                 onSearchQueryChange = { searchQuery = it },
-                onFavoritesClick = { /* */ }
+                onFavoritesClick = { /* */ },
+                searchResults = searchResults,
+                onLocationSelected = onLocationSelected
             )
         },
         bottomBar = {
@@ -472,6 +544,8 @@ fun WeatherTopBar(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     onFavoritesClick: () -> Unit,
+    searchResults: List<GeocodingLocation>,
+    onLocationSelected: (GeocodingLocation) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -480,40 +554,107 @@ fun WeatherTopBar(
             .safeDrawingPadding(),
         tonalElevation = 2.dp
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = onSearchQueryChange,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Etsi kaupunkia...") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Etsi kaupunkia"
-                    )
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    focusedContainerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-
-            IconButton(
-                onClick = onFavoritesClick
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Star,
-                    contentDescription = "Suosikit",
-                    tint = MaterialTheme.colorScheme.primary
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Etsi kaupunkia...") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Etsi kaupunkia"
+                        )
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(24.dp),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            searchResults.firstOrNull()?.let { onLocationSelected(it) }
+                        }
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface
+                    )
                 )
+
+                IconButton(
+                    onClick = onFavoritesClick
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = "Suosikit",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            if (searchResults.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        searchResults.forEach { location ->
+                            val subText = buildString {
+                                if (!location.admin1.isNullOrEmpty()) append(location.admin1)
+                                if (!location.country.isNullOrEmpty()) {
+                                    if (isNotEmpty()) append(", ")
+                                    append(location.country)
+                                }
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onLocationSelected(location) }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = location.name,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    if (subText.isNotEmpty()) {
+                                        Text(
+                                            text = subText,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
