@@ -101,6 +101,7 @@ import kotlin.math.round
 // data class 7 päivän sääennusteelle
 data class DailyForecast(
     val dayName: String,
+    val date: String,
     val condition: String,
     val icon: ImageVector,
     val maxTemp: Int,
@@ -144,7 +145,8 @@ data class OpenMeteoDaily(
     val weather_code: List<Int>?,
     val temperature_2m_max: List<Double>?,
     val temperature_2m_min: List<Double>?,
-    val precipitation_sum: List<Double>?
+    val precipitation_sum: List<Double>?,
+    val date: List<String>?
 )
 
 data class OpenMeteoResponse(
@@ -305,9 +307,23 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                         val minT = daily.temperature_2m_min?.getOrNull(i)?.toInt() ?: 0
                         val precip = daily.precipitation_sum?.getOrNull(i)?.toFloat() ?: 0f
 
+                        val dateStr = times.getOrNull(i)
+                        val dateDay = if (!dateStr.isNullOrEmpty()) {
+                            try {
+                                val parser = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                                val formatter = SimpleDateFormat("d.M.", Locale.forLanguageTag("fi-FI"))
+                                parser.parse(dateStr)?.let { formatter.format(it) } ?: dateStr
+                            } catch (_: Exception) {
+                                dateStr
+                            }
+                        } else {
+                            ""
+                        }
+
                         dailyList.add(
                             DailyForecast(
                                 dayName = dayLabel,
+                                date = dateDay,
                                 condition = dayCondition,
                                 icon = dayIcon,
                                 maxTemp = maxT,
@@ -836,6 +852,11 @@ fun ForecastRowItem(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold
                 )
+                Text (
+                    text = forecast.date,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
                 Text(
                     text = forecast.condition,
                     style = MaterialTheme.typography.bodySmall,
@@ -942,13 +963,13 @@ fun WeatherBottomNavigationBar(
 // placeholder sääennusteelle
 private fun mockForecastList(): List<DailyForecast> {
     return listOf(
-        DailyForecast("---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
-        DailyForecast("---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
-        DailyForecast("---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
-        DailyForecast("---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
-        DailyForecast("---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
-        DailyForecast("---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
-        DailyForecast("---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f)
+        DailyForecast("---", "---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
+        DailyForecast("---", "---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
+        DailyForecast("---", "---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
+        DailyForecast("---", "---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
+        DailyForecast("---", "---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
+        DailyForecast("---", "---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
+        DailyForecast("---", "---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f)
     )
 }
 
