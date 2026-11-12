@@ -27,8 +27,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ShortText
 import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Dehaze
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
@@ -40,6 +42,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Thunderstorm
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -53,6 +56,8 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -116,9 +121,18 @@ data class WeatherDetail(
     val rotation: Float = 0f
 )
 
+// data class suosikkisijainnille
+data class FavoriteLocation(
+    val name: String,
+    val latitude: Double,
+    val longitude: Double
+)
+
 // tekstit ja kuvakkeet nykyiselle säälle
 data class CurrentWeatherState(
     val locationName: String = "Haetaan sijaintia...",
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val temperature: String = "--°C",
     val condition: String = "Ladataan...",
     val humidity: String = "--%",
@@ -279,10 +293,17 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
     var selectedBottomTab by remember { mutableIntStateOf(1) }
     var searchQuery by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<GeocodingLocation>>(emptyList()) }
-    var isCurrentLocationFavorited by remember { mutableStateOf(false) }
+    var favoritesList by remember { mutableStateOf<List<FavoriteLocation>>(emptyList()) }
+    var showFavoritesDialog by remember { mutableStateOf(false) }
 
     var userLocation by remember { mutableStateOf<Location?>(null) }
     var weatherState by remember { mutableStateOf(CurrentWeatherState()) }
+
+    val isCurrentLocationFavorited = favoritesList.any { fav ->
+        fav.name == weatherState.locationName ||
+        (weatherState.latitude != null && weatherState.longitude != null &&
+         fav.latitude == weatherState.latitude && fav.longitude == weatherState.longitude)
+    }
 
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -342,6 +363,8 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                 withContext(Dispatchers.Main) {
                     weatherState = CurrentWeatherState(
                         locationName = locationName,
+                        latitude = lat,
+                        longitude = lng,
                         temperature = "${current?.temperature_2m?.toInt() ?: 0}°C",
                         condition = conditionText,
                         humidity = "${current?.relative_humidity_2m?.toInt() ?: 0}%",
@@ -355,6 +378,8 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                 withContext(Dispatchers.Main) {
                     weatherState = weatherState.copy(
                         locationName = locationName,
+                        latitude = lat,
+                        longitude = lng,
                         condition = "Virhe säätietojen haussa"
                     )
                 }
@@ -510,7 +535,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
             WeatherTopBar(
                 searchQuery = searchQuery,
                 onSearchQueryChange = { searchQuery = it },
-                onFavoritesClick = { /* */ },
+                onFavoritesClick = { showFavoritesDialog = true },
                 searchResults = searchResults,
                 onLocationSelected = onLocationSelected
             )
@@ -520,7 +545,18 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                 selectedTab = selectedBottomTab,
                 onTabSelected = { selectedBottomTab = it },
                 onFavoriteCurrentLocationClick = {
-                    isCurrentLocationFavorited = !isCurrentLocationFavorited
+                    val lat = weatherState.latitude
+                    val lng = weatherState.longitude
+                    val name = weatherState.locationName
+                    if (lat != null && lng != null && name.isNotBlank() && name != "Haetaan sijaintia...") {
+                        if (isCurrentLocationFavorited) {
+                            favoritesList = favoritesList.filterNot { fav ->
+                                fav.name == name || (fav.latitude == lat && fav.longitude == lng)
+                            }
+                        } else {
+                            favoritesList = favoritesList + FavoriteLocation(name, lat, lng)
+                        }
+                    }
                 },
                 isFavorited = isCurrentLocationFavorited
             )
@@ -553,6 +589,22 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
 
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+
+    if (showFavoritesDialog) {
+        FavoritesDialog(
+            favorites = favoritesList,
+            onSelectFavorite = { favorite ->
+                fetchWeatherForCoordinates(favorite.latitude, favorite.longitude, favorite.name)
+                showFavoritesDialog = false
+            },
+            onRemoveFavorite = { favorite ->
+                favoritesList = favoritesList.filterNot { it == favorite }
+            },
+            onDismiss = {
+                showFavoritesDialog = false
+            }
+        )
     }
 }
 
@@ -614,7 +666,7 @@ fun WeatherTopBar(
                     onClick = onFavoritesClick
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Star,
+                        imageVector = Icons.Filled.Favorite,
                         contentDescription = "Suosikit",
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -975,6 +1027,122 @@ private fun mockForecastList(): List<DailyForecast> {
         DailyForecast("---", "---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
         DailyForecast("---", "---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f),
         DailyForecast("---", "---", "---", Icons.AutoMirrored.Filled.ShortText, 0, 0, 0f)
+    )
+}
+
+// Suosikit-dialogi
+@Composable
+fun FavoritesDialog(
+    favorites: List<FavoriteLocation>,
+    onSelectFavorite: (FavoriteLocation) -> Unit,
+    onRemoveFavorite: (FavoriteLocation) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Favorite,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Suosikit",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Sulje"
+                    )
+                }
+            }
+        },
+        text = {
+            if (favorites.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Ei suosikkeja lisätty.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    favorites.forEach { favorite ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSelectFavorite(favorite)
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.LocationOn,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = favorite.name,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { onRemoveFavorite(favorite) }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Poista suosikki",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Sulje")
+            }
+        }
     )
 }
 
