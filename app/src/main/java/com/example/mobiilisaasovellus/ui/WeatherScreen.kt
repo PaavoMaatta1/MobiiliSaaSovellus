@@ -2,6 +2,7 @@ package com.example.mobiilisaasovellus.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Geocoder
 import android.location.Location
@@ -90,6 +91,9 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import androidx.core.content.edit
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -127,6 +131,26 @@ data class FavoriteLocation(
     val latitude: Double,
     val longitude: Double
 )
+
+private const val PREFS_NAME = "weather_favorites_prefs"
+private const val KEY_FAVORITES = "favorites_list"
+
+private fun loadFavorites(context: Context): List<FavoriteLocation> {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val json = prefs.getString(KEY_FAVORITES, null) ?: return emptyList()
+    return try {
+        val type = object : TypeToken<List<FavoriteLocation>>() {}.type
+        Gson().fromJson(json, type) ?: emptyList()
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
+
+private fun saveFavorites(context: Context, favorites: List<FavoriteLocation>) {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val json = Gson().toJson(favorites)
+    prefs.edit { putString(KEY_FAVORITES, json) }
+}
 
 // tekstit ja kuvakkeet nykyiselle säälle
 data class CurrentWeatherState(
@@ -293,8 +317,12 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
     var selectedBottomTab by remember { mutableIntStateOf(1) }
     var searchQuery by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<GeocodingLocation>>(emptyList()) }
-    var favoritesList by remember { mutableStateOf<List<FavoriteLocation>>(emptyList()) }
+    var favoritesList by remember { mutableStateOf(loadFavorites(context)) }
     var showFavoritesDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(favoritesList) {
+        saveFavorites(context, favoritesList)
+    }
 
     var userLocation by remember { mutableStateOf<Location?>(null) }
     var weatherState by remember { mutableStateOf(CurrentWeatherState()) }
