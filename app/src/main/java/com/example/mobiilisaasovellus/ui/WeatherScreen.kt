@@ -923,23 +923,47 @@ fun ForecastRowItem(
         }
 
         if (forecast.precipitation > 0) {
-            Row(
-                modifier = Modifier.weight(0.6f),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.WaterDrop,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer
-                )
-                Spacer(modifier = Modifier.width(2.dp))
-                Text(
-                    text = "${forecast.precipitation} mm",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                )
+
+            if (forecast.maxTemp <= 0) {
+                Row(
+                    modifier = Modifier.weight(0.6f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AcUnit,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text(
+                        text = "${forecast.precipitation} cm",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
             }
+
+            else {
+                Row(
+                    modifier = Modifier.weight(0.6f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.WaterDrop,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text(
+                        text = "${forecast.precipitation} mm",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                }
+            }
+
         } else {
             Spacer(modifier = Modifier.weight(0.6f))
         }
