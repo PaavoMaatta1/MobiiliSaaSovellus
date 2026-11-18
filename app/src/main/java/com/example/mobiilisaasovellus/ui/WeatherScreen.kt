@@ -100,10 +100,17 @@ import java.util.Locale
 import kotlin.math.round
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.rememberMarkerState
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.Marker
 
 // data class 7 päivän sääennusteelle
 data class DailyForecast(
@@ -131,6 +138,11 @@ data class FavoriteLocation(
     val latitude: Double,
     val longitude: Double
 )
+
+enum class Screen {
+    Map,
+    Weather
+}
 
 private const val PREFS_NAME = "weather_favorites_prefs"
 private const val KEY_FAVORITES = "favorites_list"
@@ -334,6 +346,8 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
     }
 
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    var selectedScreen by remember { mutableStateOf(Screen.Weather) }
 
     // hae säätiedot
     fun fetchWeatherForCoordinates(lat: Double, lng: Double, locationName: String) {
@@ -570,8 +584,8 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
         },
         bottomBar = {
             WeatherBottomNavigationBar(
-                selectedTab = selectedBottomTab,
-                onTabSelected = { selectedBottomTab = it },
+                selectedScreen = selectedScreen,
+                onScreenSelected = { selectedScreen = it },
                 onFavoriteCurrentLocationClick = {
                     val lat = weatherState.latitude
                     val lng = weatherState.longitude
@@ -590,32 +604,49 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Sääkortti
-            CurrentWeatherCard(
-                location = weatherState.locationName,
-                temperature = weatherState.temperature,
-                condition = weatherState.condition,
-                icon = weatherState.icon,
-                details = listOf(
-                    WeatherDetail("Kosteus", weatherState.humidity, Icons.Default.Opacity),
-                    WeatherDetail("Tuuli", weatherState.windSpeed, Icons.Filled.South, weatherState.windDirection)
-                )
-            )
+        when (selectedScreen) {
+            Screen.Weather -> {
+                Column(
+                    modifier = Modifier
+                        .padding(innerPadding)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Sääkortti
+                    CurrentWeatherCard(
+                        location = weatherState.locationName,
+                        temperature = weatherState.temperature,
+                        condition = weatherState.condition,
+                        icon = weatherState.icon,
+                        details = listOf(
+                            WeatherDetail("Kosteus", weatherState.humidity, Icons.Default.Opacity),
+                            WeatherDetail("Tuuli", weatherState.windSpeed, Icons.Filled.South, weatherState.windDirection)
+                        )
+                    )
 
-            // 7 päivän sääennuste
-            Forecast7DaySection(
-                forecastList = if (weatherState.forecastList.isNotEmpty()) weatherState.forecastList else mockForecastList()
-            )
+                    // 7 päivän sääennuste
+                    Forecast7DaySection(
+                        forecastList = if (weatherState.forecastList.isNotEmpty()) weatherState.forecastList else mockForecastList()
+                    )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+            Screen.Map -> {
+                Box(
+                    modifier = Modifier
+                        .padding(innerPadding)
+                        .fillMaxSize()
+                ) {
+                    MapScreen(
+                        latitude = weatherState.latitude,
+                        longitude = weatherState.longitude,
+                        locationName = weatherState.locationName
+                    )
+                }
+            }
         }
     }
 
@@ -1019,8 +1050,8 @@ fun ForecastRowItem(
 // alapalkki
 @Composable
 fun WeatherBottomNavigationBar(
-    selectedTab: Int,
-    onTabSelected: (Int) -> Unit,
+    selectedScreen: Screen,
+    onScreenSelected: (Screen) -> Unit,
     onFavoriteCurrentLocationClick: () -> Unit,
     isFavorited: Boolean,
     modifier: Modifier = Modifier
@@ -1029,8 +1060,8 @@ fun WeatherBottomNavigationBar(
         modifier = modifier
     ) {
         NavigationBarItem(
-            selected = selectedTab == 0,
-            onClick = { onTabSelected(0) },
+            selected = selectedScreen == Screen.Map,
+            onClick = { onScreenSelected(Screen.Map); },
             icon = {
                 Icon(
                     imageVector = Icons.Default.Map,
@@ -1041,8 +1072,8 @@ fun WeatherBottomNavigationBar(
         )
 
         NavigationBarItem(
-            selected = selectedTab == 1,
-            onClick = { onTabSelected(1) },
+            selected = selectedScreen == Screen.Weather,
+            onClick = { onScreenSelected(Screen.Weather) },
             icon = {
                 Icon(
                     imageVector = Icons.Default.WbSunny,
@@ -1053,7 +1084,7 @@ fun WeatherBottomNavigationBar(
         )
 
         NavigationBarItem(
-            selected = selectedTab == 2,
+            selected = false,
             onClick = {
                 onFavoriteCurrentLocationClick()
             },
@@ -1196,6 +1227,38 @@ fun FavoritesDialog(
             }
         }
     )
+}
+
+@Composable
+fun MapScreen(
+    latitude: Double?,
+    longitude: Double?,
+    locationName: String,
+    modifier: Modifier = Modifier
+) {
+    val lat = latitude ?: 60.1699
+    val lng = longitude ?: 24.9384
+    val currentLocation = LatLng(lat, lng)
+    val currentLocationMarkerState = rememberMarkerState(position = currentLocation)
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(currentLocation, 10f)
+    }
+
+    LaunchedEffect(lat, lng) {
+        cameraPositionState.position = CameraPosition.fromLatLngZoom(LatLng(lat, lng), 10f)
+        currentLocationMarkerState.position = LatLng(lat, lng)
+    }
+
+    GoogleMap(
+        modifier = modifier.fillMaxSize(),
+        cameraPositionState = cameraPositionState,
+    ) {
+        Marker(
+            state = currentLocationMarkerState,
+            title = locationName,
+            snippet = locationName
+        )
+    }
 }
 
 @Preview(showBackground = true)
