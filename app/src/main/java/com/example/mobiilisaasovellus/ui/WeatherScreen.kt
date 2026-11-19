@@ -39,7 +39,6 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Opacity
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.South
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Thunderstorm
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
@@ -62,7 +61,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -107,10 +105,11 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.rememberMarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.rememberUpdatedMarkerState
+import kotlin.time.Duration.Companion.milliseconds
 
 // data class 7 päivän sääennusteelle
 data class DailyForecast(
@@ -153,7 +152,7 @@ private fun loadFavorites(context: Context): List<FavoriteLocation> {
     return try {
         val type = object : TypeToken<List<FavoriteLocation>>() {}.type
         Gson().fromJson(json, type) ?: emptyList()
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         emptyList()
     }
 }
@@ -180,20 +179,20 @@ data class CurrentWeatherState(
 
 // data class nykyiselle säälle sää apista
 data class OpenMeteoCurrent(
-    val temperature_2m: Double?,
-    val relative_humidity_2m: Double?,
-    val weather_code: Int?,
-    val wind_speed_10m: Double?,
-    val wind_direction_10m: Double?
+    val temperature2m: Double?,
+    val relativeHumidity2m: Double?,
+    val weatherCode: Int?,
+    val windSpeed10m: Double?,
+    val windDirection10m: Double?
 )
 
 // data class 7 päivän sääennusteelle apista
 data class OpenMeteoDaily(
     val time: List<String>?,
-    val weather_code: List<Int>?,
-    val temperature_2m_max: List<Double>?,
-    val temperature_2m_min: List<Double>?,
-    val precipitation_sum: List<Double>?,
+    val weatherCode: List<Int>?,
+    val temperature2mMax: List<Double>?,
+    val temperature2mMin: List<Double>?,
+    val precipitationSum: List<Double>?,
     val date: List<String>?
 )
 
@@ -224,8 +223,8 @@ interface ApiService {
     suspend fun getWeather(
         @Query("latitude") latitude: Double,
         @Query("longitude") longitude: Double,
-        @Query("current") current: String = "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m",
-        @Query("daily") daily: String = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum",
+        @Query("current") current: String = "temperature2m,relativeHumidity2m,weatherCode,windSpeed10m,windDirection10m",
+        @Query("daily") daily: String = "weatherCode,temperature2mMax,temperature2mMin,precipitationSum",
         @Query("timezone") timezone: String = "auto"
     ): OpenMeteoResponse
 }
@@ -326,7 +325,6 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
     val coroutineScope = rememberCoroutineScope()
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
-    var selectedBottomTab by remember { mutableIntStateOf(1) }
     var searchQuery by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<GeocodingLocation>>(emptyList()) }
     var favoritesList by remember { mutableStateOf(loadFavorites(context)) }
@@ -355,7 +353,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
             try {
                 val response = RetrofitClient.api.getWeather(latitude = lat, longitude = lng)
                 val current = response.current
-                val (conditionText, icon) = mapWeatherCode(current?.weather_code)
+                val (conditionText, icon) = mapWeatherCode(current?.weatherCode)
 
                 val dailyList = mutableListOf<DailyForecast>()
 
@@ -364,11 +362,11 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                     val times = daily.time ?: emptyList()
                     for (i in times.indices) {
                         val dayLabel = formatDayLabel(i, times.getOrNull(i))
-                        val code = daily.weather_code?.getOrNull(i)
+                        val code = daily.weatherCode?.getOrNull(i)
                         val (dayCondition, dayIcon) = mapWeatherCode(code)
-                        val maxT = daily.temperature_2m_max?.getOrNull(i)?.toInt() ?: 0
-                        val minT = daily.temperature_2m_min?.getOrNull(i)?.toInt() ?: 0
-                        val precip = daily.precipitation_sum?.getOrNull(i)?.toFloat() ?: 0f
+                        val maxT = daily.temperature2mMax?.getOrNull(i)?.toInt() ?: 0
+                        val minT = daily.temperature2mMin?.getOrNull(i)?.toInt() ?: 0
+                        val precip = daily.precipitationSum?.getOrNull(i)?.toFloat() ?: 0f
 
                         val dateStr = times.getOrNull(i)
                         val dateDay = if (!dateStr.isNullOrEmpty()) {
@@ -397,7 +395,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                     }
                 }
 
-                val windSpeedTemp = current?.wind_speed_10m ?: 0.0
+                val windSpeedTemp = current?.windSpeed10m ?: 0.0
                 val windSpeedMetersPerSecond = windSpeedTemp / 3.6
                 val roundedWindSpeed = round(windSpeedMetersPerSecond * 10) / 10
 
@@ -407,16 +405,16 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                         locationName = locationName,
                         latitude = lat,
                         longitude = lng,
-                        temperature = "${current?.temperature_2m?.toInt() ?: 0}°C",
+                        temperature = "${current?.temperature2m?.toInt() ?: 0}°C",
                         condition = conditionText,
-                        humidity = "${current?.relative_humidity_2m?.toInt() ?: 0}%",
+                        humidity = "${current?.relativeHumidity2m?.toInt() ?: 0}%",
                         windSpeed = "$roundedWindSpeed m/s",
-                        windDirection = current?.wind_direction_10m?.toFloat() ?: 0f,
+                        windDirection = current?.windDirection10m?.toFloat() ?: 0f,
                         icon = icon,
                         forecastList = dailyList.ifEmpty { mockForecastList() }
                     )
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 withContext(Dispatchers.Main) {
                     weatherState = weatherState.copy(
                         locationName = locationName,
@@ -433,11 +431,11 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
     LaunchedEffect(searchQuery) {
         // 300ms viive välttääkseen turhia api pyyntöjä
         if (searchQuery.trim().length >= 2) {
-            delay(300L)
+            delay(300L.milliseconds)
             try {
                 val response = GeocodingRetrofitClient.api.searchLocations(name = searchQuery.trim())
                 searchResults = response.results ?: emptyList()
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 searchResults = emptyList()
             }
         } else {
@@ -591,12 +589,12 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                     val lng = weatherState.longitude
                     val name = weatherState.locationName
                     if (lat != null && lng != null && name.isNotBlank() && name != "Haetaan sijaintia...") {
-                        if (isCurrentLocationFavorited) {
-                            favoritesList = favoritesList.filterNot { fav ->
+                        favoritesList = if (isCurrentLocationFavorited) {
+                            favoritesList.filterNot { fav ->
                                 fav.name == name || (fav.latitude == lat && fav.longitude == lng)
                             }
                         } else {
-                            favoritesList = favoritesList + FavoriteLocation(name, lat, lng)
+                            favoritesList + FavoriteLocation(name, lat, lng)
                         }
                     }
                 },
@@ -628,7 +626,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
 
                     // 7 päivän sääennuste
                     Forecast7DaySection(
-                        forecastList = if (weatherState.forecastList.isNotEmpty()) weatherState.forecastList else mockForecastList()
+                        forecastList = weatherState.forecastList.ifEmpty { mockForecastList() }
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -1239,7 +1237,7 @@ fun MapScreen(
     val lat = latitude ?: 60.1699
     val lng = longitude ?: 24.9384
     val currentLocation = LatLng(lat, lng)
-    val currentLocationMarkerState = rememberMarkerState(position = currentLocation)
+    val currentLocationMarkerState = rememberUpdatedMarkerState(position = currentLocation)
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(currentLocation, 10f)
     }
