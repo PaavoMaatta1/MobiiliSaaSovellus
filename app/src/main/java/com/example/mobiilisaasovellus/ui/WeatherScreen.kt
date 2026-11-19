@@ -638,6 +638,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                         .padding(innerPadding)
                         .fillMaxSize()
                 ) {
+                    // anna karttaruudulle nykyisen sijainnin arvot
                     MapScreen(
                         latitude = weatherState.latitude,
                         longitude = weatherState.longitude,
@@ -710,6 +711,7 @@ fun WeatherTopBar(
                     keyboardActions = KeyboardActions(
                         onSearch = {
                             searchResults.firstOrNull()?.let { onLocationSelected(it) }
+                            // piilota näppäimistö
                             focusManager.clearFocus(true)
                         }
                     ),
@@ -1227,6 +1229,7 @@ fun FavoritesDialog(
     )
 }
 
+// karttaruutu
 @Composable
 fun MapScreen(
     latitude: Double?,
@@ -1234,8 +1237,8 @@ fun MapScreen(
     locationName: String,
     modifier: Modifier = Modifier
 ) {
-    val lat = latitude ?: 60.1699
-    val lng = longitude ?: 24.9384
+    val lat = latitude ?: 0.0000
+    val lng = longitude ?: 0.0000
     val currentLocation = LatLng(lat, lng)
     val currentLocationMarkerState = rememberUpdatedMarkerState(position = currentLocation)
     val cameraPositionState = rememberCameraPositionState {
@@ -1251,6 +1254,7 @@ fun MapScreen(
         modifier = modifier.fillMaxSize(),
         cameraPositionState = cameraPositionState,
     ) {
+        // lisää merkki kartalle nykyisen sijainnin kohdalle
         Marker(
             state = currentLocationMarkerState,
             title = locationName,
