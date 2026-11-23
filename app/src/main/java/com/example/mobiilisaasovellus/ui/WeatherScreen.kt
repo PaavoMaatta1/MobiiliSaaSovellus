@@ -178,21 +178,23 @@ data class CurrentWeatherState(
 )
 
 // data class nykyiselle säälle sää apista
+@Suppress("PropertyName")
 data class OpenMeteoCurrent(
-    val temperature2m: Double?,
-    val relativeHumidity2m: Double?,
-    val weatherCode: Int?,
-    val windSpeed10m: Double?,
-    val windDirection10m: Double?
+    val temperature_2m: Double?,
+    val relative_humidity_2m: Double?,
+    val weather_code: Int?,
+    val wind_speed_10m: Double?,
+    val wind_direction_10m: Double?
 )
 
 // data class 7 päivän sääennusteelle apista
+@Suppress("PropertyName")
 data class OpenMeteoDaily(
     val time: List<String>?,
     val weatherCode: List<Int>?,
-    val temperature2mMax: List<Double>?,
-    val temperature2mMin: List<Double>?,
-    val precipitationSum: List<Double>?,
+    val temperature_2m_max: List<Double>?,
+    val temperature_2m_min: List<Double>?,
+    val precipitation_sum: List<Double>?,
     val date: List<String>?
 )
 
@@ -223,8 +225,8 @@ interface ApiService {
     suspend fun getWeather(
         @Query("latitude") latitude: Double,
         @Query("longitude") longitude: Double,
-        @Query("current") current: String = "temperature2m,relativeHumidity2m,weatherCode,windSpeed10m,windDirection10m",
-        @Query("daily") daily: String = "weatherCode,temperature2mMax,temperature2mMin,precipitationSum",
+        @Query("current") current: String = "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m",
+        @Query("daily") daily: String = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum",
         @Query("timezone") timezone: String = "auto"
     ): OpenMeteoResponse
 }
@@ -353,7 +355,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
             try {
                 val response = RetrofitClient.api.getWeather(latitude = lat, longitude = lng)
                 val current = response.current
-                val (conditionText, icon) = mapWeatherCode(current?.weatherCode)
+                val (conditionText, icon) = mapWeatherCode(current?.weather_code)
 
                 val dailyList = mutableListOf<DailyForecast>()
 
@@ -364,9 +366,9 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                         val dayLabel = formatDayLabel(i, times.getOrNull(i))
                         val code = daily.weatherCode?.getOrNull(i)
                         val (dayCondition, dayIcon) = mapWeatherCode(code)
-                        val maxT = daily.temperature2mMax?.getOrNull(i)?.toInt() ?: 0
-                        val minT = daily.temperature2mMin?.getOrNull(i)?.toInt() ?: 0
-                        val precip = daily.precipitationSum?.getOrNull(i)?.toFloat() ?: 0f
+                        val maxT = daily.temperature_2m_max?.getOrNull(i)?.toInt() ?: 0
+                        val minT = daily.temperature_2m_min?.getOrNull(i)?.toInt() ?: 0
+                        val precip = daily.precipitation_sum?.getOrNull(i)?.toFloat() ?: 0f
 
                         val dateStr = times.getOrNull(i)
                         val dateDay = if (!dateStr.isNullOrEmpty()) {
@@ -395,7 +397,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                     }
                 }
 
-                val windSpeedTemp = current?.windSpeed10m ?: 0.0
+                val windSpeedTemp = current?.wind_speed_10m ?: 0.0
                 val windSpeedMetersPerSecond = windSpeedTemp / 3.6
                 val roundedWindSpeed = round(windSpeedMetersPerSecond * 10) / 10
 
@@ -405,11 +407,11 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                         locationName = locationName,
                         latitude = lat,
                         longitude = lng,
-                        temperature = "${current?.temperature2m?.toInt() ?: 0}°C",
+                        temperature = "${current?.temperature_2m?.toInt() ?: 0}°C",
                         condition = conditionText,
-                        humidity = "${current?.relativeHumidity2m?.toInt() ?: 0}%",
+                        humidity = "${current?.relative_humidity_2m?.toInt() ?: 0}%",
                         windSpeed = "$roundedWindSpeed m/s",
-                        windDirection = current?.windDirection10m?.toFloat() ?: 0f,
+                        windDirection = current?.wind_direction_10m?.toFloat() ?: 0f,
                         icon = icon,
                         forecastList = dailyList.ifEmpty { mockForecastList() }
                     )
