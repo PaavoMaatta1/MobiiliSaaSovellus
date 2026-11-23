@@ -101,8 +101,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.LinkAnnotation
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.rememberCameraPositionState
@@ -110,6 +112,8 @@ import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberUpdatedMarkerState
 import kotlin.time.Duration.Companion.milliseconds
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withLink
 
 // data class 7 päivän sääennusteelle
 data class DailyForecast(
@@ -804,6 +808,8 @@ fun CurrentWeatherCard(
     details: List<WeatherDetail>,
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
+    var showInfoDialog by remember { mutableStateOf(false) }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -899,6 +905,57 @@ fun CurrentWeatherCard(
                         )
                     }
                 }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End
+            ) {
+                IconButton(
+                    onClick = {
+                        showInfoDialog = true
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+
+            if (showInfoDialog) {
+                AlertDialog(
+                    onDismissRequest  = {
+                        showInfoDialog = false
+                    },
+                    title = {
+                        Text("Säätiedot")
+                    },
+                    text = {
+                        Text(
+                            buildAnnotatedString {
+                                append("Weather data by ")
+
+                                withLink(
+                                    LinkAnnotation.Url(
+                                        url = "https://open-meteo.com"
+                                    )
+                                ) {
+                                    append("Open-Meteo.com")
+                                }
+                            }
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showInfoDialog = false
+                            }
+                        ) {
+                            Text("OK")
+                        }
+                    }
+                )
             }
         }
     }
