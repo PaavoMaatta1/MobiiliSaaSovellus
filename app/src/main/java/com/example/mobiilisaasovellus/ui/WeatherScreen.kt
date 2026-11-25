@@ -195,7 +195,7 @@ data class OpenMeteoCurrent(
 @Suppress("PropertyName")
 data class OpenMeteoDaily(
     val time: List<String>?,
-    val weatherCode: List<Int>?,
+    val weather_code: List<Int>?,
     val temperature_2m_max: List<Double>?,
     val temperature_2m_min: List<Double>?,
     val precipitation_sum: List<Double>?,
@@ -368,7 +368,7 @@ fun WeatherScreen(modifier: Modifier = Modifier) {
                     val times = daily.time ?: emptyList()
                     for (i in times.indices) {
                         val dayLabel = formatDayLabel(i, times.getOrNull(i))
-                        val code = daily.weatherCode?.getOrNull(i)
+                        val code = daily.weather_code?.getOrNull(i)
                         val (dayCondition, dayIcon) = mapWeatherCode(code)
                         val maxT = daily.temperature_2m_max?.getOrNull(i)?.toInt() ?: 0
                         val minT = daily.temperature_2m_min?.getOrNull(i)?.toInt() ?: 0
